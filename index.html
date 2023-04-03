@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Slideshow</title>
+  <style>
+    head,
+    body {
+      height: 100%;
+      margin: 0;
+      font: 1em sans-serif;
+    }
+
+    #slideshow {
+      width: 100%;
+      height: 100%;
+      margin: auto;
+      position: relative;
+    }
+
+    #slide1,
+    #slide2 {
+      object-fit: cover;
+      position: fixed;
+      margin-bottom: -8px;
+      opacity: 0;
+      transition: opacity .5s ease-in-out;
+    }
+
+    #progress {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background-color: #000;
+      z-index: 100;
+    }
+
+    #progressBar {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    #progressBarFill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0%;
+      height: 100%;
+      background-color: #fff;
+      transition: width .1s linear;
+    }
+
+    #slideDuration {
+      position: fixed;
+      bottom: 2px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background-color: #000;
+      z-index: 100;
+    }
+
+    #slideDurationBar {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    #slideDurationBarFill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0%;
+      height: 100%;
+      background-color: #fff;
+      transition: width 1s linear;
+    }
+
+    #controls {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4em;
+      display: inline;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+
+    #controls button, label, input, span {
+      font-size: 2em;
+      padding: 0.25em .5em;
+      margin: 0.25em;
+      border: none;
+      border-radius: 0.5em;
+      background-color: #7d60ff;
+      color: #000;
+      cursor: pointer;
+    }
+
+    #controls button:hover {
+      background-color: #000;
+      color: #fff;
+    }
+
+    #controls input {
+      width: 6em;
+      height: 5px;
+    }
+
+
+    #context-menu {
+      position: fixed;
+      z-index: 10000;
+      width: 162px;
+      background: #7d60ff;
+      color: #fff;
+      opacity: 80%;
+      border-radius: 5px;
+      transform: scale(0);
+      transform-origin: top left;
+    }
+
+    #context-menu.visible {
+      transform: scale(1);
+      transition: transform 200ms ease-in-out;
+    }
+
+    #context-menu .item {
+      padding: 8px 10px;
+      font-size: 15px;
+      color: #eee;
+      cursor: pointer;
+      border-radius: inherit;
+    }
+
+    #context-menu .item:hover {
+      background: #343434;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="context-menu">
+    <div id="context-menu-items">
+      <!-- <div id="context-menu-item-1">Item 1</div>
+      <div id="context-menu-item-2">Item 2</div>
+      <div id="context-menu-item-3">Item 3</div> -->
+      <div id="info"></div>
+    </div>
+  </div>
+  <div id="controls">
+    <button id="startStop">⏵</button>
+    <label for="interval">Interval: </label>
+    <input type="range" id="interval" min="2" max="60" step="1" value="8" />
+    <span id="intervalValue">8s</span>
+  </div>
+  <div id="slideshow">
+    <img id="slide1" src="" alt="Slideshow image 1" />
+    <img id="slide2" src="" alt="Slideshow image 2" />
+  </div>
+  <div id="slideDuration">
+    <div id="slideDurationBar">
+      <div id="slideDurationBarFill">
+      </div>
+    </div>
+  </div>
+  <div id="progress">
+    <div id="progressBar">
+      <div id="progressBarFill">
+      </div>
+    </div>
+  </div>
+  <script>
+    // Set the folder path and the number of images
+    let folder = "images";
+
+    // Wait for the DOM to be ready
+    window.addEventListener("DOMContentLoaded", () => {
+      // Get the slideshow and slide elements
+      let slideshow = document.getElementById("slideshow");
+      let slide1 = document.getElementById("slide1");
+      let slide2 = document.getElementById("slide2");
+
+      // Read the interval value from the interval input element
+      let interval = document.getElementById("interval").value;
+
+      // Read an array of files from /images which returns a list of all the image filenames in the /images folder in this format ["1.png","a.jpg","yellow-3.webp"]
+      function getImageList() {
+        let request = new XMLHttpRequest();
+        request.open("GET", folder, false);
+        request.send(null);
+        let slideArray = JSON.parse(request.responseText);
+        return slideArray;
+      }
+
+      // Function to shuffle an array
+      function shuffle(array) {
+        let currentIndex = array.length, randomIndex;
+
+        // While there remain elements to shuffle...
+        while (currentIndex != 0) {
+
+          // Pick a remaining element...
+          randomIndex = Math.floor(Math.random() * currentIndex);
+          currentIndex--;
+
+          // And swap it with the current element.
+          [array[currentIndex], array[randomIndex]] = [
+            array[randomIndex], array[currentIndex]];
+        }
+
+        return array;
+      }
+
+      // Function to check image dimensions and viewport dimensions and animate image accordingly
+      function animateImage(imageId) {
+        let image = document.getElementById(imageId);
+        let imageWidth = image.naturalWidth;
+        let imageHeight = image.naturalHeight;
+        let viewportWidth = window.innerWidth;
+        let viewportHeight = window.innerHeight;
+        let imageRatio = (imageWidth / imageHeight).toPrecision(2);
+        let viewportRatio = (viewportWidth / viewportHeight).toPrecision(2);
+        let ratioDifference = (viewportRatio - imageRatio).toPrecision(2);
+
+        // set info div to show image dimensions and viewport dimensions and ratios and ratio difference
+        document.getElementById("info").innerHTML = slideArray[slideIndex - 1] + " imageWidth: " + imageWidth + " imageHeight: " + imageHeight + " viewportWidth: " + viewportWidth + " viewportHeight: " + viewportHeight + " imageRatio: " + imageRatio + " viewportRatio: " + viewportRatio + " ratioDifference: " + ratioDifference;
+
+        // If the image is wider than the viewport, animate the image to move right to left for a duration based on interval with max height of 100% of the viewport height
+        let translateX;
+        let imageAnimations = image.getAnimations();
+        for (let i = 0; i < imageAnimations.length; i++) {
+          imageAnimations[i].cancel();
+        }
+        if (ratioDifference < 0) {
+        image.style.height = "100%";
+        image.style.width = "auto";
+        image.style.marginLeft = "0";
+        image.style.transform = "translateX(0)";
+        let imageTranslateX = (image.width - viewportWidth);
+        image.animate([
+          { transform: "translateX(0)" },
+          { transform: "translateX(-" + imageTranslateX + "px)" },
+          { transform: "translateX(0)" }
+        ], {
+          duration: interval * 1000 * 2,
+          easing: "linear",
+          fill: "forwards",
+          iterations: Infinity
+        });
+        // If the image is taller than the viewport, animate the image to move top to bottom for a duration based on interval with max width of 100% of the viewport width
+      } else if (ratioDifference > 0) {
+        image.style.height = "auto";
+        image.style.width = "100%";
+        image.style.marginLeft = "0";
+        image.style.transform = "translateX(0)";
+        let imageTranslateY = (image.height - viewportHeight);
+        image.animate([
+          { transform: "translateY(0)" },
+          { transform: "translateY(-" + imageTranslateY + "px)" },
+          { transform: "translateY(0)" }
+        ], {
+          duration: interval * 1000 * 2,
+          easing: "linear",
+          fill: "forwards",
+          iterations: Infinity
+        });
+        }
+      }
+
+      // Initialize variables for the slideshow
+      let slideArray = getImageList()
+      let numImages = slideArray.length;
+      let slideIndex = 0;
+      let progressBarFill = document.getElementById("progressBarFill");
+      let slideDurationBarFill = document.getElementById("slideDurationBarFill");
+
+      // Do an initial shuffle of the slide array
+      slideArray = shuffle(slideArray);
+
+      // Function to change the slide
+      function changeSlide(n) {
+        // Increment the slide index by n
+        slideIndex += n;
+
+        // Wrap around the slide index if it goes out of bounds, shuffling the slide array
+        if (slideIndex > numImages) {
+          slideIndex = 1;
+          slideArray = shuffle(slideArray); // Shuffle the slide array again
+        } else if (slideIndex < 1) {
+          slideIndex = numImages;
+          slideArray = shuffle(slideArray); // Shuffle the slide array again
+        }
+
+        // Update the image source with the new slide index from the shuffled array
+        if (slide1.style.opacity == 1) { // If slide1 is visible, update slide2
+          slide2.src = folder + "/" + slideArray[slideIndex - 1];
+          document.title = "Slide " + slideIndex + "/" + numImages + " (" + slideArray[slideIndex - 1] + ")";
+          slide2.style.opacity = 1; // Make slide2 visible
+          slide1.style.opacity = 0; // Make slide1 transparent
+        } else { // If slide2 is visible, update slide1
+          slide1.src = folder + "/" + slideArray[slideIndex - 1];
+          document.title = "Slide " + slideIndex + "/" + numImages + " (" + slideArray[slideIndex - 1] + ")";
+          slide1.style.opacity = 1; // Make slide1 visible
+          slide2.style.opacity = 0; // Make slide2 transparent
+        }
+
+        // Animate the progress bar fill to show the slideshow progress
+        progressBarFill.style.width = slideIndex / numImages * 100 + "%"; // Reset the progress bar fill width
+
+        // Check if the slideshow is paused
+        if (document.getElementById("startStop").innerHTML == "⏸") {
+
+          // Animate the slide duration bar fill
+          slideDurationBarFill.style.width = "0%"; // Reset the slide duration bar fill width
+          slideDurationBarFill.animate([ // Animate the slide duration bar fill width
+            { width: "0%" },
+            { width: "100%" }
+          ], {
+            duration: interval * 1000,
+            easing: "linear",
+            fill: "forwards"
+          });
+        }
+      }
+      changeSlide(1);
+
+      // Function to start the slideshow
+      function startSlideshow() {
+        if (document.getElementById("startStop").innerHTML == "⏵") {
+          document.getElementById("startStop").innerHTML = "⏸";
+          changeSlide(1);
+          slideshow = setInterval(function () {
+            changeSlide(1);
+          }, interval * 1000);
+        }
+      }
+
+      // Function to pause the slideshow
+      function stopSlideshow() {
+        document.getElementById("startStop").innerHTML = "⏵";
+        clearInterval(slideshow);
+
+        // Reset the slide duration bar fill animation
+        slideDurationBarFill.style.width = "0%";
+        let slideDurationBarFillAnimation = slideDurationBarFill.getAnimations()[0];
+        if (slideDurationBarFillAnimation) {
+          slideDurationBarFillAnimation.cancel();
+        }
+      }
+
+      // Function to toggle slideshow start and stop
+      function startStop() {
+        document.getElementById("startStop").innerHTML == "⏵" ? startSlideshow() : stopSlideshow();
+      }
+
+      // Function to update the interval value
+      function updateInterval() {
+        interval = document.getElementById("interval").value;
+        document.getElementById("intervalValue").innerHTML = interval + "s";
+        // Check if the slideshow is running and update the interval by stopping and starting the slideshow
+        if (document.getElementById("startStop").innerHTML == "⏸") {
+          startSlideshow();
+          stopSlideshow();
+        }
+      }
+
+      // Event listener to the interval input element
+      document.getElementById("interval").addEventListener("input", updateInterval);
+
+      // Event listener for the startStop button
+      document.getElementById("startStop").addEventListener("click", startStop);
+
+      // Function to handle key presses
+      function handleKeyPress(e) {
+        // If the left arrow key is pressed, call the changeSlide function with argument -1
+        if (e.keyCode == 37) {
+          changeSlide(-1);
+          updateInterval();
+        }
+
+        // If the right arrow key is pressed, call the changeSlide function with argument 1
+        if (e.keyCode == 39) {
+          changeSlide(1);
+          updateInterval();
+        }
+      }
+
+      // Event listener for key presses
+      document.addEventListener("keydown", handleKeyPress);
+
+      // Variable declarations for the context menu
+      const contextMenu = document.getElementById("context-menu");
+      const scope = document.querySelector("body");
+
+      // Display the context menu when the right mouse button is clicked
+      scope.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        const { clientX, clientY } = e;
+        contextMenu.style.left = `${clientX}px`;
+        contextMenu.style.top = `${clientY}px`;
+        // Add a small delay to make sure the context menu is displayed after the click event
+        setTimeout(() => {
+          contextMenu.classList.add("visible");
+        }, 10);
+      });
+
+      // Hide the context menu when the user clicks outside of it
+      scope.addEventListener("click", e => {
+        if (contextMenu.classList.contains("visible")) {
+          contextMenu.classList.remove("visible");
+        }
+      });
+
+      // Function to handle context menu clicks
+      function handleContextMenuClick(e) {
+        // If the user clicks the "Previous" option, call the changeSlide function with argument -1
+        if (e.target.id == "previous") {
+          changeSlide(-1);
+          updateInterval();
+        }
+
+        // If the user clicks the "Next" option, call the changeSlide function with argument 1
+        if (e.target.id == "next") {
+          changeSlide(1);
+          updateInterval();
+        }
+
+        // Hide the context menu
+        contextMenu.classList.remove("visible");
+      }
+
+      // Event listener for context menu clicks
+      contextMenu.addEventListener("click", handleContextMenuClick);
+
+      // Function to handle mouse wheel events
+      function handleWheel(e) {
+        // If the mouse scroll wheel is scrollled up, call the changeSlide function with argument -1
+        if (e.deltaY < 0) {
+          changeSlide(-1);
+          updateInterval();
+        }
+
+        // If the mouse scroll wheel is scrollled down, call the changeSlide function with argument 1
+        if (e.deltaY > 0) {
+          changeSlide(1);
+          updateInterval();
+        }
+      }
+
+      // Event listener for mouse wheel events
+      document.addEventListener("wheel", handleWheel);
+
+      // Function to handle touch events
+      function handleTouch(e) {
+        // If the touch is a swipe to the left, call the changeSlide function with argument -1
+        if (e.changedTouches[0].clientX < e.changedTouches[0].clientY) {
+          changeSlide(-1);
+          updateInterval();
+        }
+
+        // If the touch is a swipe to the right, call the changeSlide function with argument 1
+        if (e.changedTouches[0].clientX > e.changedTouches[0].clientY) {
+          changeSlide(1);
+          updateInterval();
+        }
+      }
+
+      // Event listener for touch events
+      document.addEventListener("touchend", handleTouch);
+
+      // Wait for the images to load and then call the animateImage function
+      slide1.addEventListener("load", () => {
+        animateImage("slide1");
+      });
+      slide2.addEventListener("load", () => {
+        animateImage("slide2");
+      });
+
+      // Event listener for window resize
+      window.addEventListener("resize", () => {
+        // Call the animateImage function with the id of the visible image
+        if (slide1.style.opacity == 1) {
+          animateImage("slide1");
+        } else {
+          animateImage("slide2");
+        }
+      });
+
+      // Start the slideshow
+      startStop();
+    });
+  </script>
+</body>
+
+</html>
