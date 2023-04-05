@@ -11,7 +11,7 @@ http.createServer(function (req, res) {
     // parse the request url
     var pathname = url.parse(req.url).pathname;
 
-    console.log('Request received for: ' + pathname);
+    console.log('Request received for: ' + pathname + ' from ' + req.connection.remoteAddress);
 
     // if the request url is / then serve the index.html file
     if (pathname == "/") {
