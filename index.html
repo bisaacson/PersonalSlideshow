@@ -104,6 +104,11 @@
       cursor: pointer;
     }
 
+    #controls button > div {
+      position: relative;
+      top: -0.1em;
+    }
+
     #controls button:hover {
       background-color: #000;
       color: #fff;
@@ -156,7 +161,7 @@
     </div>
   </div>
   <div id="controls">
-    <button id="startStop">⏵</button>
+    <button id="startStop"><div id="startStopText">⏵</div></button>
     <label for="interval">Interval: </label>
     <input type="range" id="interval" min="2" max="60" step="1" value="8" />
     <span id="intervalValue">8s</span>
@@ -320,7 +325,7 @@
         progressBarFill.style.width = slideIndex / numImages * 100 + "%"; // Reset the progress bar fill width
 
         // Check if the slideshow is paused
-        if (document.getElementById("startStop").innerHTML == "⏸") {
+        if (document.getElementById("startStopText").innerHTML == "⏸") {
 
           // Animate the slide duration bar fill
           slideDurationBarFill.style.width = "0%"; // Reset the slide duration bar fill width
@@ -338,8 +343,8 @@
 
       // Function to start the slideshow
       function startSlideshow() {
-        if (document.getElementById("startStop").innerHTML == "⏵") {
-          document.getElementById("startStop").innerHTML = "⏸";
+        if (document.getElementById("startStopText").innerHTML == "⏵") {
+          document.getElementById("startStopText").innerHTML = "⏸";
           changeSlide(1);
           slideshow = setInterval(function () {
             changeSlide(1);
@@ -349,7 +354,7 @@
 
       // Function to pause the slideshow
       function stopSlideshow() {
-        document.getElementById("startStop").innerHTML = "⏵";
+        document.getElementById("startStopText").innerHTML = "⏵";
         clearInterval(slideshow);
 
         // Reset the slide duration bar fill animation
@@ -362,7 +367,7 @@
 
       // Function to toggle slideshow start and stop
       function startStop() {
-        document.getElementById("startStop").innerHTML == "⏵" ? startSlideshow() : stopSlideshow();
+        document.getElementById("startStopText").innerHTML == "⏵" ? startSlideshow() : stopSlideshow();
       }
 
       // Function to update the interval value
@@ -370,7 +375,7 @@
         interval = document.getElementById("interval").value;
         document.getElementById("intervalValue").innerHTML = interval + "s";
         // Check if the slideshow is running and update the interval by stopping and starting the slideshow
-        if (document.getElementById("startStop").innerHTML == "⏸") {
+        if (document.getElementById("startStopText").innerHTML == "⏸") {
           startSlideshow();
           stopSlideshow();
         }
