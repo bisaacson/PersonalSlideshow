@@ -2,6 +2,8 @@ var http = require('http');
 var fs = require('fs');
 var url = require('url');
 var path = require('path');
+const port = 8088;
+const hostname = "0.0.0.0";
 
 // create a server
 http.createServer(function (req, res) {
@@ -61,6 +63,6 @@ http.createServer(function (req, res) {
         res.end();
     }
 
-}).listen(8088, function () {
-    console.log('Server listening on port 8088');
+}).listen(port, hostname, function () {
+    console.log('Server listening on port ' + port);
 });
