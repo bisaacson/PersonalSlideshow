@@ -197,6 +197,10 @@
         request.open("GET", folder, false);
         request.send(null);
         let slideArray = JSON.parse(request.responseText);
+        // Check that each file in the array is an image
+        slideArray = slideArray.filter(file => {
+          return file.match(/\.(jpeg|jpg|gif|png|webp)$/) != null;
+        });
         return slideArray;
       }
 
